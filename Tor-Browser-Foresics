@@ -1,0 +1,156 @@
+Write-Host "
+Executing script...
+"
+# Specify the registry location
+$registryLocation = "HKU\S-1-5-21-3086630268-3035775925-2501282103-1009\Software\Mozilla\Firefox\Launcher"
+
+# Run reg.exe to query the registry
+$registryResult = & reg query "$registryLocation" /s
+
+# Specify the registry keys and their expected locations
+$registryKey1 = "\Device\HarddiskVolume3\Users\xeon\Desktop\Tor Browser\Browser\updater.exe"
+$registryLocation1 = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\S-1-5-21-3086630268-3035775925-2501282103-1009"
+
+$registryKey2 = "\Device\HarddiskVolume3\Users\xeon\Downloads\torbrowser-install-win64-12.0_ALL.exe"
+$registryLocation2 = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\S-1-5-21-3086630268-3035775925-2501282103-1009"
+
+$registryKey3 = "\Device\HarddiskVolume3\Users\xeon\Desktop\Tor Browser\Browser\firefox.exe"
+$registryLocation3 = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\S-1-5-21-3086630268-3035775925-2501282103-1009"
+
+# Initialize a global counter for found registries
+$global:foundRegistries = 0
+
+# Function to check if a registry key exists at a specified location
+function Check-RegistryKey {
+param (
+[string]$key,
+[string]$location
+)
+
+if (Test-Path -LiteralPath "$location\$key") {
+Write-Host "Registry key '$key' exists in '$location'." -ForegroundColor Blue
+$global:foundRegistries++
+} else {
+Write-Host "Registry key '$key' does not exist in '$location'." -ForegroundColor Red
+}
+}
+
+# Check for the first registry key
+Check-RegistryKey -key $registryKey1 -location $registryLocation1
+
+# Check for the second registry key
+Check-RegistryKey -key $registryKey2 -location $registryLocation2
+
+# Check for the third registry key
+Check-RegistryKey -key $registryKey3 -location $registryLocation3
+
+# Specify the registry location
+$mozillaregistryLocation = "HKU\S-1-5-21-3086630268-3035775925-2501282103-1009\Software"
+$firefoxRegistryLocation = "HKCU:\Software\Mozilla\Firefox"
+$firefoxSubKey = "Launcher"
+
+$torProjectRegistryLocation = "HKCU:\Software\Tor Project"
+
+# Run reg.exe to query the registry
+$mozillaregistryResult = & reg query "$mozillaregistryLocation"
+
+
+# Check if the "Tor Project" folder exists in the specified location
+if (Test-Path -LiteralPath $torProjectRegistryLocation) {
+Write-Host "
+Registry keys of 'Tor Project' exists in '$torProjectRegistryLocation'." -ForegroundColor Blue
+$global:foundRegistries++
+Write-Host $torPregistryResult
+} else {
+Write-Host "Registry keys of 'Tor Project' does not exist in '$torProjectRegistryLocation'." -ForegroundColor Red
+}
+
+# Check if the result contains "Mozilla"
+if ($mozillaregistryResult -match 'Mozilla') {
+Write-Host "Registry keys of 'Mozilla' found in '$mozillaregistryLocation':" -ForegroundColor Green
+$global:foundRegistries++
+Write-Host $mozillaregistryResult
+} else {
+Write-Host "No registry keys or values containing 'Mozilla' found in '$mozillaregistryLocation'." -ForegroundColor Red
+}
+
+# Check if the result contains "firefox"
+if ($registryResult -match 'firefox') {
+Write-Host "Registry keys of 'Firefox' exists in '$registryLocation':" -ForegroundColor Blue
+Write-Host $registryResult
+$global:foundRegistries++
+} else {
+Write-Host "No registry keys of 'Firefox' exists in '$registryLocation'." -ForegroundColor Red
+}
+
+# Check if the "Launcher" folder exists in the Firefox registry location
+if (Test-Path -LiteralPath "$firefoxRegistryLocation\$firefoxSubKey") {
+Write-Host "Registry keys of 'Tor $firefoxSubKey' exists in '$firefoxRegistryLocation'." -ForegroundColor Blue
+$global:foundRegistries++
+Write-Host $launcherregistryResult
+} else {
+Write-Host "Registry keys of '$firefoxSubKey' does not exist in '$firefoxRegistryLocation'." -ForegroundColor Red
+}
+
+
+# Specify the registry location
+$registryLocation = "HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings\S-1-5-21-3086630268-3035775925-2501282103-1009"
+
+# Check if the script is running with elevated permissions
+$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+# Relaunch the script as an administrator
+Start-Process powershell.exe -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"") -Verb RunAs
+exit
+}
+# Check if Tor registries are found
+if ($global:foundRegistries -gt 0) {
+Write-Host "
+Tor Usage Detected!
+$global:foundRegistries Tor artefacts found." -ForegroundColor Red
+} else {
+Write-Host "Nothing found about Tor usage..!" -ForegroundColor Green
+}
+
+try {
+# Get all registry items in the specified location
+$allRegistries = Get-Item -LiteralPath $registryLocation -ErrorAction Stop | Get-ItemProperty -ErrorAction Stop
+
+# Output all registry values for debugging
+Write-Host "
+
+All registry values:"
+$allRegistries.PSObject.Properties | ForEach-Object { Write-Host $_.Name }
+
+# Check for values containing 'Tor' or 'tor'
+$TfoundRegistries = $allRegistries.PSObject.Properties | Where-Object { $_.Name -match 'Tor|tor' }
+
+if ($TfoundRegistries.Count -gt 0) {
+Write-Host "
+Registry values having 'Tor' artefacts exists in '$registryLocation':" -ForegroundColor Green
+$global:foundRegistries++
+
+# Check if Tor registries are found
+if ($global:foundRegistries -gt 0) {
+Write-Host "
+Tor Usage Detected!
+$global:foundRegistries Tor artefacts found." -ForegroundColor Red
+} else {
+Write-Host "Nothing found about Tor usage..!" -ForegroundColor Green
+}
+
+$foundRegistries | ForEach-Object { Write-Host $_.Name }
+} else {
+Write-Host "No registry values containing 'Tor' or 'tor' found in '$registryLocation'." -ForegroundColor Red
+}
+
+# Pause to allow the user to see the output
+Read-Host "Press Enter to continue..."
+} catch {
+Write-Host "Error accessing registry location '$registryLocation': $_" -ForegroundColor Red
+# Pause to allow the user to see the error message
+Read-Host "Press Enter to continue..."
+}
+
+Write-Host  "Script completed."
